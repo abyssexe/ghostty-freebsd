@@ -132,27 +132,6 @@ pub fn build(b: *std.Build) !void {
         }
 
         try pkgconfig.collectOutput(&stdout, &stderr, output_max_size);
-
-        const term = try pkgconfig.wait();
-
-        if (stderr.items.len > 0) {
-            std.log.warn("pkg-config had errors:\n{s}", .{stderr.items});
-        }
-
-        switch (term) {
-            .Exited => |code| {
-                if (code == 0) {
-                    if (std.mem.indexOf(u8, stdout.items, "x11")) |_| x11 = true;
-                    if (std.mem.indexOf(u8, stdout.items, "wayland")) |_| wayland = true;
-                } else {
-                    std.log.warn("pkg-config: {s} with code {d}", .{ @tagName(term), code });
-                }
-            },
-            inline else => |code| {
-                std.log.warn("pkg-config: {s} with code {d}", .{ @tagName(term), code });
-                return error.Unexpected;
-            },
-        }
     }
 
     if (target.result.os.tag == .linux) pkgconfig: {
