@@ -110,6 +110,51 @@ pub fn build(b: *std.Build) !void {
     var x11 = false;
     var wayland = false;
 
+    if (target.result.os.tag == .freebsd) pkgconfig: {
+        var pkgconfig = std.process.Child.init(&.{ "pkg-config", "--variable=targets", "gtk4" }, b.allocator);
+
+        pkgconfig.stdout_behavior = .Pipe;
+        pkgconfig.stderr_behavior = .Pipe;
+
+        pkgconfig.spawn() catch |err| {
+            std.log.warn("failed to spawn pkg-config - disabling X11 and Wayland integrations: {}", .{err});
+            break :pkgconfig;
+        };
+
+        const output_max_size = 50 * 1024;
+
+        var stdout = std.ArrayList(u8).init(b.allocator);
+        var stderr = std.ArrayList(u8).init(b.allocator);
+
+        defer {
+            stdout.deinit();
+            stderr.deinit();
+        }
+
+        try pkgconfig.collectOutput(&stdout, &stderr, output_max_size);
+
+        const term = try pkgconfig.wait();
+
+        if (stderr.items.len > 0) {
+            std.log.warn("pkg-config had errors:\n{s}", .{stderr.items});
+        }
+
+        switch (term) {
+            .Exited => |code| {
+                if (code == 0) {
+                    if (std.mem.indexOf(u8, stdout.items, "x11")) |_| x11 = true;
+                    if (std.mem.indexOf(u8, stdout.items, "wayland")) |_| wayland = true;
+                } else {
+                    std.log.warn("pkg-config: {s} with code {d}", .{ @tagName(term), code });
+                }
+            },
+            inline else => |code| {
+                std.log.warn("pkg-config: {s} with code {d}", .{ @tagName(term), code });
+                return error.Unexpected;
+            },
+        }
+    }
+
     if (target.result.os.tag == .linux) pkgconfig: {
         var pkgconfig = std.process.Child.init(&.{ "pkg-config", "--variable=targets", "gtk4" }, b.allocator);
 
