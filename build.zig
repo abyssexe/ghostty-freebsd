@@ -132,6 +132,8 @@ pub fn build(b: *std.Build) !void {
         }
 
         try pkgconfig.collectOutput(&stdout, &stderr, output_max_size);
+        x11 = true;
+        wayland = true;
     }
 
     if (target.result.os.tag == .linux) pkgconfig: {
